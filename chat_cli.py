@@ -4,7 +4,7 @@ import sys
 
 from openai import OpenAI
 
-DEFAULT_BASE_URL = "http://blacksmith.local:8081/v1"
+DEFAULT_BASE_URL = "http://localhost:8081/v1"
 DEFAULT_SYSTEM = "You are a helpful assistant."
 
 
@@ -34,7 +34,12 @@ def main():
     parser.add_argument(
         "--base-url",
         default=os.environ.get("LLAMA_BASE_URL", DEFAULT_BASE_URL),
-        help=f"Base URL of the OpenAI-compatible server (default: {DEFAULT_BASE_URL})",
+        help=f"Full base URL of the OpenAI-compatible server (default: {DEFAULT_BASE_URL})",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("LLAMA_HOST"),
+        help="Shortcut to override just the host (e.g. 'xyz.ai' or 'localhost:8081'); appends /v1",
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--system", help="System prompt string")
@@ -44,7 +49,19 @@ def main():
     if not args.api_key:
         sys.exit("error: --api-key is required (or set LLAMA_API_KEY)")
 
-    client = OpenAI(base_url=args.base_url, api_key=args.api_key)
+    if args.host:
+        host = args.host
+        if not host.startswith(("http://", "https://")):
+            host = "http://" + host
+        base_url = host.rstrip("/") + "/v1"
+    else:
+        base_url = args.base_url
+
+    client = OpenAI(
+        base_url=base_url,
+        api_key=args.api_key,
+        default_headers={"User-Agent": "curl/8.7.1"},
+    )
 
     if args.system_file:
         with open(args.system_file) as f:
